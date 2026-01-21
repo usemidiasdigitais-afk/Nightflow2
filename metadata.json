@@ -1,0 +1,7 @@
+{
+  "name": "NightFlow AI Engine",
+  "description": "A sophisticated nightclub management SaaS interface featuring a real-time AI-powered upsell engine and administrative dashboard.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
