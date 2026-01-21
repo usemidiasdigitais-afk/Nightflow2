@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 
@@ -13,9 +12,10 @@ export const Auth: React.FC = () => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     
     if (error) {
-      window.showToast(error.message);
+      if (window.showToast) window.showToast(error.message);
+      else alert(error.message);
     } else {
-      window.showToast("Bem-vindo ao NightFlow!");
+      if (window.showToast) window.showToast("Bem-vindo ao NightFlow!");
     }
     setLoading(false);
   };
@@ -37,7 +37,7 @@ export const Auth: React.FC = () => {
           <p className="text-gray-500 text-xs font-black uppercase tracking-[0.3em] mt-2">SaaS Intelligence Core</p>
         </div>
 
-        <form onSubmit={handleLogin} className="bg-neutral-900/40 backdrop-blur-xl p-8 rounded-[2.5rem] border border-white/5 shadow-2xl space-y-6">
+        <form onSubmit={handleLogin} className="glass-panel p-8 rounded-[2.5rem] border border-white/5 shadow-2xl space-y-6">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Acesso do Operador</label>
             <div className="relative group">

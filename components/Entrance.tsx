@@ -2,10 +2,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Reservation } from '../types';
 import { supabase } from '../services/supabaseClient';
+import { Session } from '@supabase/supabase-js';
 
 declare const Html5QrcodeScanner: any;
 
-const Entrance: React.FC = () => {
+interface EntranceProps {
+  session: Session | null;
+}
+
+const Entrance: React.FC<EntranceProps> = ({ session }) => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -14,12 +19,14 @@ const Entrance: React.FC = () => {
   const scannerRef = useRef<any>(null);
 
   const fetchReservations = async () => {
+    if (!session?.user?.id) return;
     setIsLoading(true);
     setErrorMsg(null);
     try {
       const { data, error } = await supabase
         .from('reservations')
         .select('*')
+        .eq('tenant_id', session.user.id) // Security filter added
         .order('customerName', { ascending: true });
 
       if (error) throw error;
@@ -54,7 +61,12 @@ const Entrance: React.FC = () => {
 
     const subscription = supabase
       .channel('reservations_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => {
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'reservations',
+        filter: session?.user?.id ? `tenant_id=eq.${session.user.id}` : undefined 
+      }, () => {
         fetchReservations();
       })
       .subscribe();
@@ -66,7 +78,7 @@ const Entrance: React.FC = () => {
       }
       supabase.removeChannel(subscription);
     };
-  }, [reservations]);
+  }, [session]);
 
   const confirmCheckIn = async () => {
     if (!selectedReserva) return;
@@ -147,7 +159,7 @@ const Entrance: React.FC = () => {
                 <div className="h-full flex flex-col items-center justify-center space-y-6">
                   <div className="relative">
                     <div className="w-12 h-12 border-2 border-gray-800 rounded-full"></div>
-                    <div className="w-12 h-12 border-2 border-[#39FF14] border-t-transparent rounded-full animate-spin absolute top-0"></div>
+                    <div className="w-12 h-12 border-2 border-[#39FF14] border-t-transparent rounded-full animate-spin absolute top-0 shadow-[0_0_20px_rgba(57,255,20,0.4)]"></div>
                   </div>
                   <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest animate-pulse">Autenticando no Supabase...</p>
                 </div>
