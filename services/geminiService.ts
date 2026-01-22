@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIResponse } from "../types";
 
@@ -18,13 +17,14 @@ TABELA DE PREÇOS:
 
 COMPORTAMENTO:
 - Seja persuasivo, porém educado e direto. Use termos como "exclusividade", "economia antecipada", "vantagem VIP".
+- Analise a intenção do usuário cuidadosamente para oferecer o melhor custo-benefício que aumente o ticket médio.
 - Responda SEMPRE com o JSON estruturado abaixo.
 
 Sua resposta deve ser EXCLUSIVAMENTE em JSON para que o sistema possa ler.
 `;
 
 export const processChatMessage = async (userMessage: string): Promise<AIResponse> => {
-  // Fixed: Initialize Gemini API client using process.env.API_KEY directly as per guidelines
+  // Initialize Gemini API client using process.env.API_KEY as per guidelines
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
@@ -34,6 +34,8 @@ export const processChatMessage = async (userMessage: string): Promise<AIRespons
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
+        // Adding a thinking budget to allow for more nuanced sales reasoning
+        thinkingConfig: { thinkingBudget: 2048 },
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -64,7 +66,7 @@ export const processChatMessage = async (userMessage: string): Promise<AIRespons
   } catch (error) {
     console.error("Gemini API Error:", error);
     return {
-      mensagem_chat: "Desculpe, tive um problema técnico ao processar seu pedido. Por favor, tente novamente.",
+      mensagem_chat: "Tive um leve atraso no processamento. Poderia repetir seu pedido?",
       sugestao_upsell: false,
       item_sugerido: "",
       valor_total: 0

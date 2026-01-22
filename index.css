@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #39FF14;
+  --primary-neon: #39FF14;
+  --bg-dark: #050505;
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+@layer base {
+  input {
+    @apply w-full bg-black border border-gray-800 p-4 rounded-2xl text-white outline-none transition-all focus:border-[#39FF14];
+  }
+  button {
+    @apply transition-all active:scale-95;
+  }
+}
+
+/* Base Styles */
+body {
+  background-color: var(--bg-dark);
+  color: white;
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism System */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+}
+
+/* Neon Glow Effects */
+.neon-glow {
+  box-shadow: 0 0 20px rgba(57, 255, 20, 0.15);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--primary-color) 20%, transparent);
+}
+
+.neon-text {
+  color: var(--primary-color);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--primary-color) 50%, transparent);
+}
+
+/* Interactive Elements */
+.btn-neon {
+  background-color: var(--primary-color);
+  color: black;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--primary-color) 20%, transparent);
+}
+
+.btn-neon:hover {
+  background-color: white;
+  box-shadow: 0 15px 30px color-mix(in srgb, var(--primary-color) 40%, transparent);
+  transform: translateY(-2px);
+}
+
+.btn-neon:active {
+  transform: translateY(0);
+}
+
+/* Custom Animations */
+@keyframes neon-pulse {
+  0%, 100% { 
+    box-shadow: 0 0 10px var(--primary-color); 
+    opacity: 1; 
+  }
+  50% { 
+    box-shadow: 0 0 25px var(--primary-color); 
+    opacity: 0.8; 
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes bounce-in {
+    0% { transform: scale(0.9) translateY(20px); opacity: 0; }
+    60% { transform: scale(1.02) translateY(-5px); opacity: 1; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.animate-neon {
+  animation: neon-pulse 2s infinite ease-in-out;
+}
+
+.animate-float {
+  animation: float 4s infinite ease-in-out;
+}
+
+.animate-bounce-in {
+    animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+/* Component Specific Utilities */
+.badge-new-partner {
+  background-color: var(--primary-color);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  animation: neon-pulse 1.5s infinite;
+}
+
+/* Scrollbar Refinement */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #222;
+  border-radius: 10px;
+  border: 1px solid #111;
+  transition: background 0.3s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-color);
+}
+
+/* Utility to hide scrollbars but keep functionality */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; color: black !important; }
+  .glass-panel { border: 1px solid #ddd !important; background: transparent !important; backdrop-filter: none !important; }
+}

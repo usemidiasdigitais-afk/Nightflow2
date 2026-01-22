@@ -8,6 +8,7 @@ import Entrance from './components/Entrance';
 import Promoters from './components/Promoters';
 import PromoterMobileDash from './components/PromoterMobileDash';
 import { Auth } from './components/Auth';
+import { ErrorScreen } from './components/ErrorScreen';
 import { supabase } from './services/supabaseClient';
 import { useTenant } from './hooks/useTenant';
 import { Session } from '@supabase/supabase-js';
@@ -25,6 +26,7 @@ const App: React.FC = () => {
   const [toast, setToast] = useState<{ message: string; visible: boolean }>({ message: '', visible: false });
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<UserRole>('staff');
   
   const tenant = useTenant();
@@ -48,12 +50,45 @@ const App: React.FC = () => {
     window.showToast = showToast;
   }, [showToast]);
 
+  // Initial Connection Check and Session Sync
+  useEffect(() => {
+    const initApp = async () => {
+      try {
+        // Check session
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
+
+        // Basic health check query to ensure Supabase connectivity
+        const { error: pingError } = await supabase
+          .from('profiles')
+          .select('count', { count: 'exact', head: true })
+          .limit(1);
+
+        if (pingError && pingError.code === 'PGRST301') {
+          throw new Error("Credenciais do Banco de Dados inválidas.");
+        }
+      } catch (err: any) {
+        console.error("Critical Initialization Error:", err);
+        setInitError(err.message || "Erro desconhecido ao conectar com Supabase.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initApp();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Branding Logic
   useEffect(() => {
     const fetchBranding = async () => {
       if (tenant && tenant !== 'admin') {
-        // Fetch custom branding based on tenant slug
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('profiles') 
           .select('primary_color')
           .eq('slug', tenant)
@@ -61,9 +96,7 @@ const App: React.FC = () => {
         
         if (data?.primary_color) {
           setBrandColor(data.primary_color);
-          // Applies the color dynamically to the CSS variables
           document.documentElement.style.setProperty('--primary-color', data.primary_color);
-          // Also set secondary glows if needed
           document.documentElement.style.setProperty('--primary-neon', data.primary_color);
         }
       }
@@ -84,12 +117,9 @@ const App: React.FC = () => {
           
           if (data && data.role) {
             setUserRole(data.role as UserRole);
-            
-            // Auto-redirect if restricted
-            if (data.role === 'staff') setActiveTab('entrance');
-            if (data.role === 'promoter') setActiveTab('promoters');
+            if (data.role === 'staff' && activeTab === 'dashboard') setActiveTab('entrance');
+            if (data.role === 'promoter' && activeTab === 'dashboard') setActiveTab('promoters');
           } else if (error) {
-            // Fallback to domain-based role if table or record doesn't exist
             const fallbackRole = session.user.email?.endsWith('@promoter.com') ? 'promoter' : 'admin';
             setUserRole(fallbackRole as UserRole);
           }
@@ -99,29 +129,18 @@ const App: React.FC = () => {
       }
     };
     if (session) getUserRole();
-  }, [session]);
+  }, [session, activeTab]);
 
   const promoterCode = session?.user?.email?.split('@')[0] || 'default_ref';
 
-  // Referral Tracking Logic
-  useEffect(() => {
-    const queryParams = new URLSearchParams(window.location.search);
-    const refCode = queryParams.get('ref');
-    
-    if (refCode) {
-      localStorage.setItem('nightflow_referral', refCode);
-      console.log(`[NightFlow Engine] Promoter tracked via URL: ${refCode}`);
-      showToast(`Link de promoter ativo: ${refCode}`);
-    }
-  }, [showToast]);
-
+  // Metrics Logic
   const fetchMetrics = useCallback(async (userId: string) => {
     const { data: transactions, error: txError } = await supabase
       .from('transactions')
       .select('amount')
       .eq('tenant_id', userId);
 
-    const { count: checkinCount, error: resError } = await supabase
+    const { count: checkinCount } = await supabase
       .from('reservations')
       .select('*', { count: 'exact', head: true })
       .eq('tenant_id', userId)
@@ -138,24 +157,12 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  useEffect(() => {
     if (session?.user && userRole === 'admin') {
       fetchMetrics(session.user.id);
     }
   }, [session, fetchMetrics, userRole]);
 
+  // Real-time Subscriptions
   useEffect(() => {
     if (!session || userRole !== 'admin') return;
 
@@ -256,6 +263,9 @@ const App: React.FC = () => {
     }
   };
 
+  // Conditionals: Error -> Loading -> Auth -> App
+  if (initError) return <ErrorScreen message={initError} />;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-6">
@@ -272,7 +282,6 @@ const App: React.FC = () => {
     return <Auth />;
   }
 
-  // If promoter role, return full screen mobile-first dash
   if (userRole === 'promoter') {
     return (
         <div className="min-h-screen bg-[#050505]">
@@ -287,7 +296,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Admin & Staff View
   return (
     <div className="min-h-screen bg-[#050505] text-white flex selection:bg-[var(--primary-color)] selection:text-black">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} role={userRole} />

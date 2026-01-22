@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Chart from 'chart.js/auto';
+import { WelcomeGuide } from './WelcomeGuide';
+import { supabase } from '../services/supabaseClient';
 
 interface DashboardProps {
   metrics: {
@@ -14,9 +16,35 @@ const Dashboard: React.FC<DashboardProps> = ({ metrics }) => {
   const chartRef = useRef<HTMLCanvasElement | null>(null);
   const chartInstance = useRef<Chart | null>(null);
   const [selectedTable, setSelectedTable] = useState<number | null>(null);
+  const [isNewUser, setIsNewUser] = useState<boolean>(false);
+  const [loadingCheck, setLoadingCheck] = useState<boolean>(true);
 
   useEffect(() => {
-    if (chartRef.current) {
+    const checkUserHistory = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          const { count, error } = await supabase
+            .from('transactions')
+            .select('*', { count: 'exact', head: true })
+            .eq('tenant_id', session.user.id);
+          
+          if (!error) {
+            setIsNewUser(count === 0);
+          }
+        }
+      } catch (err) {
+        console.error("Error checking user history:", err);
+      } finally {
+        setLoadingCheck(false);
+      }
+    };
+
+    checkUserHistory();
+  }, []);
+
+  useEffect(() => {
+    if (chartRef.current && !isNewUser) {
       const ctx = chartRef.current.getContext('2d');
       if (ctx) {
         if (chartInstance.current) {
@@ -83,9 +111,18 @@ const Dashboard: React.FC<DashboardProps> = ({ metrics }) => {
         chartInstance.current.destroy();
       }
     };
-  }, [metrics.revenue]);
+  }, [metrics.revenue, isNewUser]);
 
   const metricCardClass = "bg-black p-6 rounded-[2rem] border border-gray-800 shadow-xl relative overflow-hidden group transition-all duration-500 ease-out hover:scale-[1.02] hover:border-[#39FF14] hover:shadow-[0_20px_40px_rgba(57,255,20,0.08)] cursor-default";
+
+  if (loadingCheck) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-2 border-[#39FF14] border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.4em]">Validando Perfil...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
@@ -99,6 +136,8 @@ const Dashboard: React.FC<DashboardProps> = ({ metrics }) => {
             <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Fluxo NightFlow Ativo</span>
         </div>
       </header>
+
+      {isNewUser && <WelcomeGuide />}
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -156,7 +195,14 @@ const Dashboard: React.FC<DashboardProps> = ({ metrics }) => {
               </div>
             </div>
             <div className="h-64 relative">
-              <canvas ref={chartRef}></canvas>
+              {isNewUser ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-10 opacity-30">
+                  <i className="fa-solid fa-chart-line text-5xl mb-4"></i>
+                  <p className="text-xs font-black uppercase tracking-widest">Os gráficos aparecerão após as primeiras vendas.</p>
+                </div>
+              ) : (
+                <canvas ref={chartRef}></canvas>
+              )}
             </div>
           </div>
 
@@ -234,25 +280,32 @@ const Dashboard: React.FC<DashboardProps> = ({ metrics }) => {
                 Feed <span className="text-[#39FF14]">Live</span>
               </h3>
               <div className="space-y-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                {[...Array(8)].map((_, idx) => (
-                    <div key={idx} className="flex gap-4 items-start p-4 bg-gray-900/30 rounded-3xl border border-gray-800/50 hover:border-[#39FF14]/30 transition-all group cursor-pointer">
-                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xs shadow-inner transition-all group-hover:scale-110 ${
-                            idx % 4 === 0 ? 'bg-blue-500/10 text-blue-400' : 
-                            idx % 4 === 1 ? 'bg-[#39FF14]/10 text-[#39FF14]' : 
-                            idx % 4 === 2 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-purple-500/10 text-purple-400'
-                        }`}>
-                            <i className={`fa-solid ${idx % 4 === 0 ? 'fa-user-check' : idx % 4 === 1 ? 'fa-cash-register' : idx % 4 === 2 ? 'fa-wine-glass' : 'fa-bell'}`}></i>
-                        </div>
-                        <div className="flex-1">
-                            <p className="text-[11px] font-bold text-gray-100 group-hover:text-white transition-colors">
-                              {idx % 4 === 0 ? 'Check-in: Juliana M.' : 
-                               idx % 4 === 1 ? 'Venda: Combo Galera' : 
-                               idx % 4 === 2 ? 'Solicitação: Mesa #08' : 'Alerta: Estoque Vodka'}
-                            </p>
-                            <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest mt-1">Há {idx + 1} minutos • Portaria Sul</p>
-                        </div>
-                    </div>
-                ))}
+                {isNewUser ? (
+                   <div className="h-full flex flex-col items-center justify-center text-gray-700 p-10 opacity-40">
+                      <i className="fa-solid fa-bolt-lightning text-4xl mb-4"></i>
+                      <p className="text-[9px] font-black uppercase text-center leading-relaxed">Aguardando telemetria inicial da casa.</p>
+                   </div>
+                ) : (
+                  [...Array(8)].map((_, idx) => (
+                      <div key={idx} className="flex gap-4 items-start p-4 bg-gray-900/30 rounded-3xl border border-gray-800/50 hover:border-[#39FF14]/30 transition-all group cursor-pointer">
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-xs shadow-inner transition-all group-hover:scale-110 ${
+                              idx % 4 === 0 ? 'bg-blue-500/10 text-blue-400' : 
+                              idx % 4 === 1 ? 'bg-[#39FF14]/10 text-[#39FF14]' : 
+                              idx % 4 === 2 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-purple-500/10 text-purple-400'
+                          }`}>
+                              <i className={`fa-solid ${idx % 4 === 0 ? 'fa-user-check' : idx % 4 === 1 ? 'fa-cash-register' : idx % 4 === 2 ? 'fa-wine-glass' : 'fa-bell'}`}></i>
+                          </div>
+                          <div className="flex-1">
+                              <p className="text-[11px] font-bold text-gray-100 group-hover:text-white transition-colors">
+                                {idx % 4 === 0 ? 'Check-in: Juliana M.' : 
+                                idx % 4 === 1 ? 'Venda: Combo Galera' : 
+                                idx % 4 === 2 ? 'Solicitação: Mesa #08' : 'Alerta: Estoque Vodka'}
+                              </p>
+                              <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest mt-1">Há {idx + 1} minutos • Portaria Sul</p>
+                          </div>
+                      </div>
+                  ))
+                )}
               </div>
               <div className="mt-8 pt-4 border-t border-gray-900">
                 <p className="text-[9px] text-gray-600 font-black uppercase text-center tracking-[0.4em] italic animate-pulse">Scanning infrastructure...</p>
